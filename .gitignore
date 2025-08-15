@@ -4,10 +4,30 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.pkl
+*.log
+
+# Virtual environments
 .venv/
+env/
+venv/
+
+# Local environment variables
 .env
 .envrc
 
-# Editors
+# VS Code / PyCharm
 .vscode/
 .idea/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# AWS config cache (if you accidentally store them here)
+.aws/
+
+# Coverage / test output
+.coverage
+htmlcov/
