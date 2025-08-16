@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.boto3lab.example</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/kevinschafer/\.boto3lab/venv/bin/python</string>
+    <string>/Users/kevinschafer/\.boto3lab/s3_list_buckets.py</string>
+    <string>boto3lab</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>BOTO3_LAB_LOG_DIR</key><string>/Users/kevinschafer/boto3_lab_logs</string>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/kevinschafer/Library/Logs/boto3lab.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/kevinschafer/Library/Logs/boto3lab.err.log</string>
+  <key>RunAtLoad</key><true/>
+  <key>StartCalendarInterval</key><dict>
+    <key>Hour</key><integer>9</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+</dict></plist>
