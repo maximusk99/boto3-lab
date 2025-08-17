@@ -1,252 +1,227 @@
-# Boto3 Lab: Complete Step-by-Step Guide (macOS)
+# Boto3 Lab Documentation
 
-This lab manual consolidates and streamlines the instructions, troubleshooting, and notes gathered during setup of a **Python automation environment with Boto3**. It is designed so you can follow it end-to-end without needing any external references.
-
----
-
-## 1. What You’ll Build
-- A clean Python environment on macOS.
-- AWS CLI configured with either IAM Identity Center (SSO) or IAM access keys.
-- A lab S3 bucket with least-privilege access.
-- A starter Boto3 script that lists buckets and retrieves an object.
-- Optional automation using macOS LaunchAgent or AWS-native scheduling.
+This document provides a complete step-by-step guide to setting up and running a Boto3 lab environment. 
+All sensitive values (account IDs, usernames, bucket names) have been masked.
 
 ---
 
-## 2. Prerequisites
-- macOS with Terminal access.
-- Python 3.9+ installed.
-- Homebrew (optional, but recommended).
-- An AWS account with ability to create IAM users or SSO permission sets.
+## 1. Prerequisites
 
-### Install basics (if not already installed)
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install pyenv direnv awscli
-brew install --cask visual-studio-code
-```
+- Python 3.11+ installed
+- AWS CLI installed and configured with a profile (`workstation-admin` or equivalent)
+- Basic understanding of IAM policies, roles, and S3
 
-Add to your shell:
+---
+
+## 2. Lab Setup
+
+### Create Lab Directory
+
 ```bash
-echo 'eval "$(pyenv init -)"' >> ~/.zshrc
-echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
-exec zsh
+mkdir -p "$HOME/.boto3lab"
 ```
 
 Verify:
+
 ```bash
-python3 --version
+ls -al $HOME/.boto3lab
+```
+
+Example output:
+
+```
+-rw-r--r--   1 your-username  staff   140 Aug 15  requirements.txt
+drwxr-xr-x   6 your-username  staff   192 Aug 15  venv
+```
+
+### Create Virtual Environment
+
+```bash
+python3 -m venv "$HOME/.boto3lab/venv"
+source "$HOME/.boto3lab/venv/bin/activate"
+```
+
+### Requirements File
+
+`requirements.txt` should include:
+
+```
+boto3>=1.34.98
+botocore>=1.34.98
+```
+
+Install requirements:
+
+```bash
+pip install -r "$HOME/.boto3lab/requirements.txt"
 ```
 
 ---
 
-## 3. Project Setup
-```bash
-cd ~
-mkdir -p Projects/boto3-lab
-cd Projects/boto3-lab
+## 3. IAM Policy and User
 
-echo "layout python" > .envrc
-direnv allow
-python -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip boto3 botocore
+### Create IAM Policy
+
+```bash
+aws iam create-policy   --policy-name Boto3LabS3RW   --policy-document file://boto3lab-s3rw.json   --profile workstation-admin
+```
+
+### Attach Policy to User
+
+```bash
+aws iam attach-user-policy   --user-name boto3-lab-RO   --policy-arn arn:aws:iam::111111111111:policy/Boto3LabS3RW   --profile workstation-admin
 ```
 
 ---
 
-## 4. Initialize Git & GitHub
+## 4. S3 Test
+
+### List Buckets via CLI
+
 ```bash
-git init -b main
-git config --global user.name "Your Name"
-git config --global user.email "you@example.com"
+aws s3 ls --profile boto3lab
 ```
 
-### Starter files
-**README.md**
-```markdown
-# boto3-lab
-First Python automation lab using Boto3. Set up on macOS.
+Example masked output:
+
 ```
-
-**.gitignore**
-```gitignore
-# macOS
-.DS_Store
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pkl
-*.log
-
-# Virtual environments
-.venv/
-
-# Local environment variables
-.env
-.envrc
-
-# Editors
-.vscode/
-.idea/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# AWS
-.aws/
-```
-
-Commit:
-```bash
-git add .
-git commit -m "Initial commit: boto3 lab setup"
-```
-
-### Connect to GitHub
-- **Fine-grained token** (recommended): grant `Contents: Read and write` to only `boto3-lab` repo.
-- Or use SSH:
-```bash
-ssh-keygen -t ed25519 -C "your_email@example.com"
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
-pbcopy < ~/.ssh/id_ed25519.pub   # add to GitHub → Settings → SSH keys
-git remote add origin git@github.com:MAXIMUSK99/boto3-lab.git
-git push -u origin main
+2025-08-15 20:47:11 boto3-lab-<masked>
 ```
 
 ---
 
-## 5. AWS Authentication
+## 5. Python Script
 
-### Option A — AWS SSO (recommended)
-```bash
-aws configure sso --profile boto3-lab
-aws sso login --profile boto3-lab
-```
+Create `$HOME/.boto3lab/s3_list_buckets.py`:
 
-### Option B — IAM User with Access Keys
-1. In the AWS Console, go to IAM → Users → Add user.
-2. Enable **Programmatic access**.
-3. Attach least-privilege policy (see below).
-4. Configure locally:
-```bash
-aws configure --profile boto3-lab
-```
-
----
-
-## 6. IAM Policies
-
-### Minimal read-only policy
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {"Effect": "Allow", "Action": ["s3:ListAllMyBuckets"], "Resource": "*"},
-    {"Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": "arn:aws:s3:::YOUR-LAB-BUCKET"},
-    {"Effect": "Allow", "Action": ["s3:GetObject"], "Resource": "arn:aws:s3:::YOUR-LAB-BUCKET/*"}
-  ]
-}
-```
-
-### Add write access (if you want uploads/deletes)
-```json
-"s3:PutObject", "s3:DeleteObject"
-```
-
-Attach with an **admin-capable profile** (`workstation-admin` or SSO Admin).
-
----
-
-## 7. Create the Lab Bucket
-```bash
-BUCKET=boto3-lab-<username>-$(date +%s)
-aws s3api create-bucket --bucket "$BUCKET" --region us-east-1 --profile workstation-admin
-
-echo "Hello from Boto3!" > hello.txt
-aws s3 cp hello.txt s3://$BUCKET/hello.txt --profile workstation-admin
-```
-
-Export environment variables:
-```bash
-export LAB_BUCKET=$BUCKET
-export LAB_KEY=hello.txt
-```
-
----
-
-## 8. First Boto3 Script
-**s3_list_and_read.py**
 ```python
-import boto3, os
+import boto3, os, sys
+from datetime import datetime
+from botocore.exceptions import NoCredentialsError, ClientError
 
-session = boto3.Session(profile_name="boto3-lab")
-s3 = session.client("s3")
+def main():
+    s3 = boto3.client("s3")
+    ts = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+    out_dir = os.environ.get("BOTO3_LAB_LOG_DIR", os.path.expanduser("~/boto3_lab_logs"))
+    os.makedirs(out_dir, exist_ok=True)
+    log_path = os.path.join(out_dir, f"s3_buckets_{ts}.log")
+    try:
+        resp = s3.list_buckets()
+        names = [b["Name"] for b in resp.get("Buckets", [])]
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(names) if names else "(no buckets found)")
+        print(f"Wrote {len(names)} buckets to {log_path}")
+    except NoCredentialsError:
+        print("ERROR: No AWS credentials found. Run aws configure.", file=sys.stderr); sys.exit(2)
+    except ClientError as e:
+        print(f"AWS ClientError: {e}", file=sys.stderr); sys.exit(3)
 
-# List buckets
-resp = s3.list_buckets()
-print("Buckets:")
-for b in resp.get("Buckets", []):
-    print(" -", b["Name"])
-
-# Read object
-bucket = os.environ.get("LAB_BUCKET")
-key = os.environ.get("LAB_KEY", "hello.txt")
-
-try:
-    obj = s3.get_object(Bucket=bucket, Key=key)
-    print(f"\nContents of s3://{bucket}/{key}:\n{obj['Body'].read().decode('utf-8')}")
-except s3.exceptions.NoSuchKey:
-    print(f"Object not found: s3://{bucket}/{key}")
+if __name__ == "__main__":
+    main()
 ```
 
-Run:
+Make executable:
+
 ```bash
-python s3_list_and_read.py
+chmod +x "$HOME/.boto3lab/s3_list_buckets.py"
+```
+
+Run test:
+
+```bash
+"$HOME/.boto3lab/venv/bin/python" "$HOME/.boto3lab/s3_list_buckets.py" boto3lab
+```
+
+Example masked output:
+
+```
+Wrote 1 buckets to $HOME/boto3_lab_logs/s3_buckets_2025-08-15T20-47-11Z.log
 ```
 
 ---
 
-## 9. Troubleshooting Notes
-- **403 Forbidden**: bucket exists but you lack `s3:ListBucket`.
-- **404 Not Found**: key doesn’t exist; check object name and path.
-- **AccessDenied on PutObject**: policy missing `s3:PutObject`.
-- **Invalid username/token for Git push**: must use PAT or SSH.
-- **zsh EOF issues**: when writing files with `cat <<EOF`, paste JSON cleanly and close with `EOF` on its own line.
+## 6. LaunchAgent Automation (macOS)
+
+### Create PLIST
+
+`$HOME/.boto3lab/com.boto3lab.example.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$HOME/.boto3lab/venv/bin/python</string>
+    <string>$HOME/.boto3lab/s3_list_buckets.py</string>
+    <string>boto3lab</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string> 
+    <key>BOTO3_LAB_LOG_DIR</key><string>$HOME/boto3_lab_logs</string>
+  </dict>
+  <key>StandardOutPath</key><string>$HOME/Library/Logs/boto3lab.out.log</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/boto3lab.err.log</string>
+  <key>RunAtLoad</key><true/>
+  <key>StartCalendarInterval</key><dict>
+    <key>Hour</key><integer>9</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+</dict>
+</plist>
+```
+
+### Load LaunchAgent
+
+```bash
+mkdir -p "$HOME/Library/LaunchAgents"
+cp "$HOME/.boto3lab/com.boto3lab.example.plist" "$HOME/Library/LaunchAgents/com.boto3lab.example.plist"
+
+launchctl unload "$HOME/Library/LaunchAgents/com.boto3lab.example.plist" 2>/dev/null || true
+launchctl load  "$HOME/Library/LaunchAgents/com.boto3lab.example.plist"
+launchctl start com.boto3lab.example
+```
+
+Check logs:
+
+```bash
+tail -n 50 ~/Library/Logs/boto3lab.out.log
+tail -n 50 ~/Library/Logs/boto3lab.err.log
+```
 
 ---
 
-## 10. Automation Options
+## 7. Verification
 
-### macOS LaunchAgent (local)
-- Install plist in `~/Library/LaunchAgents/`.
-- Example schedule: run at login + daily 9am.
-- Logs go to `~/Library/Logs/boto3lab.*.log`.
+```bash
+ls -lt ~/boto3_lab_logs
+```
 
-### AWS-native (recommended for production)
-- **EventBridge Scheduler → Lambda**.
-- Create a Lambda with `boto3` client calls.
-- Schedule with cron/rate expressions (supports time zones).
+Example masked output:
 
----
-
-## 11. Next Steps
-- Add DynamoDB or RDS read operations.
-- Implement retries and structured logging.
-- Explore multipart uploads with progress callbacks.
-- Replace static profile with env-based auth for CI/CD.
-- Experiment with CloudWatch metrics in Boto3.
+```
+-rw-r--r--  1 your-username  staff  25 Aug 15 15:55 s3_buckets_2025-08-15T20-55-22Z.log
+-rw-r--r--  1 your-username  staff  25 Aug 15 15:47 s3_buckets_2025-08-15T20-47-11Z.log
+```
 
 ---
 
-## ✅ Outcome
-At this point, you have:
-- A Python project on macOS with Git/GitHub integration.
-- AWS CLI and credentials configured.
-- A working S3 bucket with least-privilege access.
-- A Boto3 script that lists and reads objects.
-- The foundation to extend into automation and cloud-native scheduling.
+## 8. Notes & Troubleshooting
+
+- Always use a non-root AWS profile for the lab (`boto3lab` recommended).
+- Ensure IAM policies are created **before** attaching.
+- macOS `sed` requires `-i ''` syntax.
+- Logs are rotated daily by timestamp.
+
+---
+
+## 9. Summary
+
+You now have a complete Boto3 Lab environment that:
+- Creates and uses a dedicated IAM policy and user
+- Tests connectivity with S3
+- Automates bucket listing with a Python script
+- Schedules daily execution with LaunchAgent
+- Writes logs to `$HOME/boto3_lab_logs`
